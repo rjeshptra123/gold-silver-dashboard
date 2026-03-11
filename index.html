@@ -393,7 +393,45 @@
     border-top: 1px solid var(--border);
   }
 
-  /* RESPONSIVE */
+  /* FOOTER BAR */
+  .footer-bar {
+    border-top: 1px solid var(--border);
+    margin-top: 48px;
+    padding: 18px 0;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .footer-left {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'DM Mono', monospace; font-size: 11px;
+  }
+  .footer-refresh-icon {
+    width: 14px; height: 14px; opacity: 0.5;
+  }
+  .footer-ts { color: var(--gold-dim); font-weight: 500; }
+  .footer-sep {
+    width: 1px; height: 12px; background: var(--border);
+    display: inline-block; margin: 0 8px; vertical-align: middle;
+  }
+  .footer-note { color: var(--text-muted); }
+  .footer-right {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .footer-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-muted); padding: 3px 8px;
+    border: 1px solid var(--border); border-radius: 4px;
+  }
+  .footer-badge .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+  }
+  .footer-badge.gold-badge .dot { background: var(--gold-dim); }
+  .footer-badge.silver-badge .dot { background: var(--silver-dim); }
+  @media (max-width: 600px) {
+    .footer-bar { flex-direction: column; align-items: flex-start; gap: 10px; }
+  }
   @media (max-width: 900px) {
     .hero-grid, .chart-grid, .pred-grid, .news-grid { grid-template-columns: 1fr; }
     .stats-row { grid-template-columns: repeat(2,1fr); }
@@ -639,7 +677,22 @@
 
 </div>
 
-<div class="last-updated" id="last-updated"></div>
+<footer class="footer-bar wrap">
+  <div class="footer-left">
+    <svg class="footer-refresh-icon" viewBox="0 0 16 16" fill="none" stroke="var(--gold-dim)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13.5 2.5A6.5 6.5 0 1 1 2.5 8"/>
+      <polyline points="0.5 2.5 2.5 2.5 2.5 0.5"/>
+    </svg>
+    <span class="footer-ts" id="last-updated">—</span>
+    <span class="footer-sep"></span>
+    <span class="footer-note">Prices are indicative · Auto-refresh every 30 min</span>
+  </div>
+  <div class="footer-right">
+    <span class="footer-badge gold-badge"><span class="dot"></span>MCX Gold</span>
+    <span class="footer-badge silver-badge"><span class="dot"></span>MCX Silver</span>
+    <span class="footer-badge"><span style="opacity:0.5">⚖</span>INR</span>
+  </div>
+</footer>
 
 <script>
 // ─────────────────────────────────────────────────────────
@@ -706,6 +759,21 @@ function getSlice(history, days) {
 
 function fmt(n) { return '₹' + n.toLocaleString('en-IN'); }
 function fmtK(n) { return '₹' + (n >= 1000 ? (n/1000).toFixed(1) + 'K' : n.toLocaleString('en-IN')); }
+
+// ─────────────────────────────────────────────────────────
+// FOOTER TIMESTAMP
+// ─────────────────────────────────────────────────────────
+function updateFooterTimestamp() {
+  const now = new Date();
+  const ts = now.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  });
+  const el = document.getElementById('last-updated');
+  if (el) el.textContent = 'Last refreshed: ' + ts + ' IST';
+}
 
 // ─────────────────────────────────────────────────────────
 // CLOCK
@@ -790,8 +858,7 @@ function updateHeroCards() {
     drawSparkline('silver-spark', SILVER_HISTORY, '#9EAFC2');
   }, 100);
 
-  document.getElementById('last-updated').textContent =
-    'Data last refreshed: ' + new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST · Prices are indicative · MCX reference';
+  updateFooterTimestamp();
   document.getElementById('news-updated').textContent = 'Updated · ' + new Date().toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
 }
 
@@ -1007,68 +1074,129 @@ function renderPredictions() {
 // ─────────────────────────────────────────────────────────
 // NEWS DATA — Market intelligence
 // ─────────────────────────────────────────────────────────
-const NEWS = [
+const NEWS_POOL = [
   {
     tag: 'gold', sentiment: 'positive', icon: '📈',
     headline: 'RBI increases gold reserves by 8 tonnes in February, signalling continued de-dollarisation push amid global uncertainty',
-    source: 'Economic Times', time: '2h ago',
-    metals: ['Gold'],
+    source: 'Economic Times',
     impact: 78, impactText: 'Bullish — Central bank buying supports floor price',
   },
   {
     tag: 'both', sentiment: 'negative', icon: '📉',
     headline: 'US Federal Reserve signals fewer rate cuts in 2025 as inflation remains sticky above 3%, strengthening USD against INR',
-    source: 'Reuters India', time: '3h ago',
-    metals: ['Gold', 'Silver'],
+    source: 'Reuters India',
     impact: 65, impactText: 'Bearish — Strong dollar pressures commodity prices',
   },
   {
     tag: 'silver', sentiment: 'positive', icon: '⚡',
     headline: 'India\'s solar panel installation target of 100 GW by 2026 to drive industrial silver demand to record highs',
-    source: 'Mint', time: '5h ago',
-    metals: ['Silver'],
+    source: 'Mint',
     impact: 82, impactText: 'Very Bullish — Industrial demand surge expected',
   },
   {
     tag: 'gold', sentiment: 'positive', icon: '🌍',
     headline: 'Geopolitical tensions in Middle East escalate; gold seeing safe-haven inflows as investors reduce equity exposure',
-    source: 'Bloomberg Quint', time: '6h ago',
-    metals: ['Gold'],
+    source: 'Bloomberg Quint',
     impact: 71, impactText: 'Bullish — Risk-off sentiment drives safe-haven demand',
   },
   {
     tag: 'both', sentiment: 'negative', icon: '💰',
     headline: 'Government hikes import duty on gold and silver by 2% to control current account deficit ahead of budget review',
-    source: 'Financial Express', time: '8h ago',
-    metals: ['Gold', 'Silver'],
+    source: 'Financial Express',
     impact: 58, impactText: 'Bearish — Higher duty dampens domestic physical demand',
   },
   {
     tag: 'silver', sentiment: 'positive', icon: '🔋',
     headline: 'Electric vehicle adoption in India accelerates; silver-intensive battery tech driving industrial procurement volumes up 34% YoY',
-    source: 'Business Standard', time: '10h ago',
-    metals: ['Silver'],
+    source: 'Business Standard',
     impact: 74, impactText: 'Bullish — EV adoption catalyst for long-term silver demand',
   },
   {
     tag: 'gold', sentiment: 'negative', icon: '📊',
     headline: 'Equity markets rally as Nifty 50 hits fresh highs; gold sees outflows as risk appetite improves among domestic investors',
-    source: 'MoneyControl', time: '12h ago',
-    metals: ['Gold'],
+    source: 'MoneyControl',
     impact: 44, impactText: 'Mildly Bearish — Risk-on reduces safe-haven allocation',
   },
   {
     tag: 'both', sentiment: 'neutral', icon: '⚖️',
     headline: 'MCX gold and silver volumes stable ahead of key US CPI data release; traders cautious in thin holiday-week trading',
-    source: 'NDTV Profit', time: '14h ago',
-    metals: ['Gold', 'Silver'],
+    source: 'NDTV Profit',
     impact: 30, impactText: 'Neutral — Wait-and-watch mode before macro data',
+  },
+  {
+    tag: 'gold', sentiment: 'positive', icon: '🏦',
+    headline: 'Global central banks collectively purchased 290 tonnes of gold in Q1 2026, highest quarterly buying since 2010 records',
+    source: 'Economic Times',
+    impact: 85, impactText: 'Very Bullish — Structural demand from central banks lifts long-term floor',
+  },
+  {
+    tag: 'silver', sentiment: 'negative', icon: '🏭',
+    headline: 'Chinese industrial output slows for third consecutive month; silver demand from electronics sector expected to dip near-term',
+    source: 'Reuters India',
+    impact: 52, impactText: 'Bearish — Weaker industrial demand from China weighs on silver',
+  },
+  {
+    tag: 'both', sentiment: 'positive', icon: '💹',
+    headline: 'Rupee weakens to 92.3 against USD; imported commodity prices including gold and silver set to rise in domestic markets',
+    source: 'Mint',
+    impact: 67, impactText: 'Bullish — Currency depreciation inflates INR-denominated metal prices',
+  },
+  {
+    tag: 'gold', sentiment: 'neutral', icon: '📋',
+    headline: 'SEBI proposes new gold derivative contracts on NSE to improve price discovery and deepen domestic bullion market liquidity',
+    source: 'Financial Express',
+    impact: 35, impactText: 'Neutral — Regulatory development, long-term positive for market depth',
+  },
+  {
+    tag: 'silver', sentiment: 'positive', icon: '☀️',
+    headline: 'PM announces ₹2.1 lakh crore green energy push; silver demand for photovoltaic cells projected to double by 2028',
+    source: 'Business Standard',
+    impact: 79, impactText: 'Very Bullish — Policy-driven industrial silver demand acceleration',
+  },
+  {
+    tag: 'both', sentiment: 'negative', icon: '🇺🇸',
+    headline: 'US jobs data beats expectations with 280K non-farm payrolls; precious metals sell off as rate-cut hopes pushed further out',
+    source: 'Bloomberg Quint',
+    impact: 61, impactText: 'Bearish — Strong US macro data reduces appeal of non-yielding metals',
+  },
+  {
+    tag: 'gold', sentiment: 'positive', icon: '💍',
+    headline: 'Wedding season demand surges in North India; jewellers report 28% YoY increase in gold purchases ahead of Akshaya Tritiya',
+    source: 'NDTV Profit',
+    impact: 55, impactText: 'Bullish — Seasonal jewellery demand provides near-term price support',
+  },
+  {
+    tag: 'silver', sentiment: 'neutral', icon: '🔬',
+    headline: 'New silver recycling technology developed by IIT researchers could reduce primary silver mining demand by up to 18% by 2030',
+    source: 'MoneyControl',
+    impact: 28, impactText: 'Neutral to Mildly Bearish — Supply-side innovation may ease long-term tightness',
   },
 ];
 
-function renderNews() {
+// Track current displayed news indices to detect actual change on refresh
+let currentNewsIndices = [];
+
+function renderNews(forceNew = false) {
+  const now = new Date();
+
+  // On first render or force refresh, pick 8 random items from pool
+  if (forceNew || currentNewsIndices.length === 0) {
+    // Shuffle pool and pick first 8
+    const shuffled = [...NEWS_POOL]
+      .map((item, i) => ({ item, sort: Math.random() + i * 0.001 }))
+      .sort((a, b) => a.sort - b.sort)
+      .map(x => x.item);
+    currentNewsIndices = shuffled.slice(0, 8);
+  }
+
+  // Assign relative timestamps that feel live — spread across last 0–16 hours
+  const timeLabels = ['Just now', '8m ago', '22m ago', '45m ago', '1h ago', '2h ago', '4h ago', '7h ago',
+                      '9h ago', '11h ago', '13h ago', '16h ago', '20h ago', '1d ago', '1d ago', '2d ago'];
+
   const grid = document.getElementById('news-grid');
-  grid.innerHTML = NEWS.map(n => `
+  grid.innerHTML = currentNewsIndices.map((n, idx) => {
+    const timeStr = timeLabels[idx] || (idx + 1) + 'h ago';
+    return `
     <div class="news-card">
       <div class="news-sentiment ${n.sentiment}">${n.icon}</div>
       <div class="news-body">
@@ -1080,7 +1208,7 @@ function renderNews() {
         <div class="news-meta">
           <span>${n.source}</span>
           <span class="news-meta-dot">·</span>
-          <span>${n.time}</span>
+          <span>${timeStr}</span>
         </div>
         <div class="news-impact-bar">
           <span class="news-impact-text">${n.impactText}</span>
@@ -1090,8 +1218,11 @@ function renderNews() {
           <span style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace;flex-shrink:0">${n.impact}%</span>
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+
+  document.getElementById('news-updated').textContent =
+    'Updated · ' + now.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST';
 }
 
 // ─────────────────────────────────────────────────────────
@@ -1122,24 +1253,25 @@ function updateCountdown() {
 }
 
 function refreshAllData() {
-  // Simulate a small price variance on each refresh (realistic tick)
+  // Simulate a realistic price tick on each refresh
   const goldTick = BASE.gold + Math.round((Math.random() - 0.48) * 600);
   const silverTick = BASE.silver + Math.round((Math.random() - 0.48) * 2000);
 
-  // Update live BASE to simulate new fetched data
+  // Update live BASE prices
   BASE.gold = goldTick;
   BASE.silver = silverTick;
 
-  // Update the last data point in history
+  // Pin latest history point to new price so all charts + predictions use it
   GOLD_HISTORY[GOLD_HISTORY.length - 1].price = goldTick;
   SILVER_HISTORY[SILVER_HISTORY.length - 1].price = silverTick;
 
+  // Refresh every section
   updateHeroCards();
   updateCharts(currentRange);
   renderPredictions();
+  renderNews(true); // true = rotate to a fresh set of news items
 
-  document.getElementById('last-updated').textContent =
-    'Last refreshed: ' + new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST · Prices are indicative · MCX reference';
+  updateFooterTimestamp();
 }
 
 function manualRefresh() {
@@ -1166,10 +1298,9 @@ function init() {
   updateHeroCards();
   initCharts();
   renderPredictions();
-  renderNews();
+  renderNews(false); // initial load — picks first random set
   startCountdown();
-  document.getElementById('last-updated').textContent =
-    'Last refreshed: ' + new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST · Prices are indicative · MCX reference · Auto-refresh every 30 min';
+  updateFooterTimestamp();
 }
 
 window.addEventListener('load', init);
