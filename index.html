@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>India · Gold & Silver Market Intelligence</title>
+<title>India · Gold & Silver Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -64,10 +64,6 @@
     background: rgba(8,10,14,0.8);
     position: sticky; top: 0; z-index: 100;
   }
-  .header-inner {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 0;
-  }
   .logo {
     display: flex; align-items: center; gap: 10px;
     font-family: 'Playfair Display', serif;
@@ -81,11 +77,17 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 16px;
   }
+  .header-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 0; gap: 12px;
+  }
   .header-meta {
-    display: flex; align-items: center; gap: 24px;
+    display: flex; align-items: center; gap: 16px;
     font-size: 12px; color: var(--text-muted);
     font-family: 'DM Mono', monospace;
+    flex-shrink: 0;
   }
+  .header-hide-md { display: inline-flex; }
   .live-dot {
     display: inline-flex; align-items: center; gap: 6px;
     color: var(--up); font-size: 11px;
@@ -148,7 +150,7 @@
   }
   .price-main.gold { color: var(--gold-light); }
   .price-main.silver { color: var(--silver-light); }
-  .price-sub { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .price-sub { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .change-badge {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 4px 10px; border-radius: 6px;
@@ -165,6 +167,7 @@
   /* SECTION HEADERS */
   .section-header {
     display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
     padding: 32px 0 16px;
   }
   .section-title {
@@ -179,7 +182,7 @@
 
   /* TIME RANGE TABS */
   .time-tabs {
-    display: flex; gap: 4px;
+    display: flex; gap: 4px; flex-wrap: wrap;
     background: var(--bg-card); border-radius: 8px;
     padding: 3px; border: 1px solid var(--border);
   }
@@ -237,6 +240,7 @@
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 16px; padding: 24px;
+    overflow: hidden;
   }
   .pred-card-header { margin-bottom: 20px; }
   .pred-card-metal { font-family: 'Playfair Display', serif; font-size: 16px; margin-bottom: 4px; }
@@ -258,7 +262,7 @@
     font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-muted);
   }
   .pred-variance .range { font-size: 13px; color: var(--text-secondary); }
-  .pred-table { width: 100%; border-collapse: collapse; }
+  .pred-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .pred-table th {
     font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
     color: var(--text-muted); font-family: 'DM Mono', monospace;
@@ -298,7 +302,7 @@
   .news-sentiment.positive { background: var(--up-bg); }
   .news-sentiment.negative { background: var(--down-bg); }
   .news-sentiment.neutral { background: rgba(142,153,171,0.1); }
-  .news-body { flex: 1; min-width: 0; }
+  .news-body { flex: 1; min-width: 0; overflow: hidden; }
   .news-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
   .news-tag {
     font-size: 10px; font-family: 'DM Mono', monospace;
@@ -387,12 +391,6 @@
   }
 
 
-    text-align: center; padding: 12px;
-    font-size: 11px; color: var(--text-muted);
-    font-family: 'DM Mono', monospace;
-    border-top: 1px solid var(--border);
-  }
-
   /* FOOTER BAR */
   .footer-bar {
     border-top: 1px solid var(--border);
@@ -402,7 +400,7 @@
     flex-wrap: wrap; gap: 12px;
   }
   .footer-left {
-    display: flex; align-items: center; gap: 6px;
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
     font-family: 'DM Mono', monospace; font-size: 11px;
   }
   .footer-refresh-icon {
@@ -429,19 +427,113 @@
   }
   .footer-badge.gold-badge .dot { background: var(--gold-dim); }
   .footer-badge.silver-badge .dot { background: var(--silver-dim); }
-  @media (max-width: 600px) {
-    .footer-bar { flex-direction: column; align-items: flex-start; gap: 10px; }
+  /* ── RESPONSIVE BREAKPOINTS ── */
+
+  /* ─── Large Desktop (1200px+) — already handled by max-width:1440px wrap ─── */
+
+  /* ─── Small Desktop / Large Laptop (1024px–1199px) ─── */
+  @media (max-width: 1199px) {
+    .price-main { font-size: 42px; }
   }
+
+  /* ─── Tablet Landscape / Small Laptop (901px–1024px) ─── */
+  @media (max-width: 1024px) {
+    .stats-row { grid-template-columns: repeat(4,1fr); gap: 12px; }
+    .col-conf { display: none; }
+  }
+
+  /* ─── Tablet Portrait (641px–900px) ─── */
   @media (max-width: 900px) {
+    .wrap { padding: 0 20px; }
     .hero-grid, .chart-grid, .pred-grid, .news-grid { grid-template-columns: 1fr; }
-    .stats-row { grid-template-columns: repeat(2,1fr); }
-    .price-main { font-size: 36px; }
-    .header-meta { display: none; }
+    .stats-row { grid-template-columns: repeat(2,1fr); gap: 12px; }
+    .price-main { font-size: 40px; }
+    .price-card { padding: 22px 24px; }
+    .chart-wrap { height: 180px; }
+
+    /* Section header wraps so tabs go below title */
+    .section-header { flex-wrap: wrap; gap: 10px; padding: 24px 0 14px; }
+
+    /* Prediction tomorrow box stacks */
+    .pred-tomorrow { flex-direction: column; gap: 8px; align-items: flex-start; }
+    .pred-variance { text-align: left; }
+
+    /* Prediction table: hide Confidence column */
+    .col-conf { display: none; }
+
+    /* Header controls */
+    .header-hide-md { display: none; }
+    .header-meta { gap: 10px; }
+
+    /* Footer */
+    .footer-bar { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .footer-right { flex-wrap: wrap; gap: 8px; }
   }
+
+  /* ─── Large Phone (481px–640px) ─── */
+  @media (max-width: 640px) {
+    .wrap { padding: 0 16px; }
+    .price-main { font-size: 34px; }
+    .price-card { padding: 18px 20px; }
+    .hero-section { padding: 24px 0 16px; }
+    .chart-wrap { height: 160px; }
+    .stats-row { grid-template-columns: repeat(2,1fr); gap: 10px; }
+    .stat-box { padding: 12px 14px; }
+    .stat-box-value { font-size: 18px; }
+    .section-header { padding: 20px 0 12px; }
+
+    /* Header — keep countdown + icon-only refresh button, hide clock */
+    .header-meta { gap: 8px; }
+    .refresh-btn span.btn-label { display: none; }
+    .refresh-btn { padding: 7px 10px; }
+    #clock { display: none; }
+
+    /* News cards stack icon above text on very narrow */
+    .news-card { padding: 14px 16px; gap: 10px; }
+    .news-headline { font-size: 13px; }
+
+    /* Pred table: also hide Variance column at this width */
+    .col-variance { display: none; }
+    .pred-tomorrow-price { font-size: 24px; }
+  }
+
+  /* ─── Small Phone (≤480px) ─── */
   @media (max-width: 480px) {
-    .stats-row { grid-template-columns: 1fr 1fr; }
-    .time-tabs { flex-wrap: wrap; }
+    .wrap { padding: 0 12px; }
+    .price-main { font-size: 28px; }
+    .price-card { padding: 16px 16px; }
+    .price-card::after { font-size: 80px; }
+    .card-metal { font-size: 16px; }
+    .chart-wrap { height: 140px; }
+    .stats-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-box { padding: 10px 12px; }
+    .stat-box-value { font-size: 16px; }
+    .time-tabs { flex-wrap: wrap; gap: 3px; }
+    .time-tab { padding: 4px 8px; font-size: 11px; }
+    .logo { font-size: 18px; }
+    .logo-icon { width: 28px; height: 28px; font-size: 14px; }
+    .header-inner { padding: 12px 0; }
+    .section-title { font-size: 17px; }
+    .pred-card { padding: 16px; }
+    .pred-tomorrow { padding: 12px 14px; }
+    .pred-tomorrow-price { font-size: 22px; }
+    .news-card { padding: 12px 14px; gap: 10px; }
+    .news-headline { font-size: 13px; line-height: 1.45; }
+    .footer-right { display: none; } /* hide badges on tiny screens */
+    .change-badge { font-size: 11px; padding: 3px 8px; }
   }
+
+  /* ─── Tiny Phone (≤360px) ─── */
+  @media (max-width: 360px) {
+    .price-main { font-size: 24px; }
+    .stat-box-value { font-size: 14px; }
+    .time-tab { padding: 4px 6px; font-size: 10px; }
+    .refresh-btn { padding: 6px 8px; }
+    .countdown-ring svg { width: 16px; height: 16px; }
+    #refresh-countdown { font-size: 10px; }
+  }
+
+
 
   /* FADE IN ANIMATION */
   .fade-in {
@@ -466,7 +558,9 @@
         INDIA
       </div>
       <div class="header-meta">
-        <span class="live-dot">LIVE DATA</span>
+        <!-- LIVE badge: hide on tablets -->
+        <span class="live-dot header-hide-md">LIVE DATA</span>
+        <!-- Countdown ring: always visible -->
         <div class="countdown-ring" title="Auto-refreshes every 30 minutes">
           <svg viewBox="0 0 18 18">
             <circle class="track" cx="9" cy="9" r="7"/>
@@ -474,15 +568,18 @@
           </svg>
           <span id="refresh-countdown">30:00</span>
         </div>
+        <!-- Refresh button: always visible, text label hides on small phones -->
         <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M13.5 2.5A6.5 6.5 0 1 1 2.5 8"/>
             <polyline points="0.5 2.5 2.5 2.5 2.5 0.5"/>
           </svg>
-          Refresh
+          <span class="btn-label">Refresh</span>
         </button>
+        <!-- Clock: always visible, hides on very small phones -->
         <span id="clock"></span>
-        <span>MCX · INR</span>
+        <!-- MCX label: hide on tablets -->
+        <span class="header-hide-md">MCX · INR</span>
       </div>
     </div>
   </div>
@@ -619,17 +716,19 @@
           <div class="range" id="gold-pred-range">—</div>
         </div>
       </div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
       <table class="pred-table">
         <thead>
           <tr>
             <th>Date</th>
             <th>Predicted</th>
-            <th>Variance</th>
-            <th>Confidence</th>
+            <th class="col-variance">Variance</th>
+            <th class="col-conf">Confidence</th>
           </tr>
         </thead>
         <tbody id="gold-pred-rows"></tbody>
       </table>
+      </div>
     </div>
 
     <!-- Silver Predictions -->
@@ -649,17 +748,19 @@
           <div class="range" id="silver-pred-range">—</div>
         </div>
       </div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
       <table class="pred-table">
         <thead>
           <tr>
             <th>Date</th>
             <th>Predicted</th>
-            <th>Variance</th>
-            <th>Confidence</th>
+            <th class="col-variance">Variance</th>
+            <th class="col-conf">Confidence</th>
           </tr>
         </thead>
         <tbody id="silver-pred-rows"></tbody>
       </table>
+      </div>
     </div>
   </div>
 
@@ -1054,8 +1155,8 @@ function renderPredictions() {
         <tr>
           <td>${dayLabel}</td>
           <td class="price">${fmt(p.price)}</td>
-          <td><span style="color:${dirCls}">${dir} ±${fmt(p.variance)}</span></td>
-          <td>
+          <td class="col-variance"><span style="color:${dirCls}">${dir} ±${fmt(p.variance)}</span></td>
+          <td class="col-conf">
             <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
               <span style="font-size:11px;color:var(--text-muted)">${p.conf}%</span>
               <div class="pred-conf" style="width:48px">
