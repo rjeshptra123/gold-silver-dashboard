@@ -546,6 +546,39 @@
   .delay-3 { animation-delay: 0.3s; }
   .delay-4 { animation-delay: 0.4s; }
   .delay-5 { animation-delay: 0.5s; }
+
+  /* ERROR NOTIFICATION TOAST */
+  .toast-container {
+    position: fixed; top: 20px; right: 20px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 10px;
+    pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    background: #1a1215; border: 1px solid rgba(224,92,92,0.4);
+    border-left: 3px solid var(--down);
+    border-radius: 8px; padding: 14px 18px; max-width: 380px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    color: var(--text-primary); box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    display: flex; align-items: flex-start; gap: 10px;
+    animation: toastIn 0.35s ease forwards;
+  }
+  .toast.toast-warning {
+    border-color: rgba(201,168,76,0.4);
+    border-left-color: var(--gold);
+  }
+  .toast-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .toast-content { flex: 1; }
+  .toast-title { font-weight: 500; margin-bottom: 3px; font-size: 13px; }
+  .toast-msg { color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+  .toast-close {
+    background: none; border: none; color: var(--text-muted); cursor: pointer;
+    font-size: 16px; padding: 0 0 0 8px; flex-shrink: 0; line-height: 1;
+  }
+  .toast-close:hover { color: var(--text-primary); }
+  .toast-out { animation: toastOut 0.3s ease forwards; }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
 </style>
 </head>
 <body>
@@ -561,12 +594,12 @@
         <!-- LIVE badge: hide on tablets -->
         <span class="live-dot header-hide-md">LIVE DATA</span>
         <!-- Countdown ring: always visible -->
-        <div class="countdown-ring" title="Auto-refreshes every 30 minutes">
+        <div class="countdown-ring" title="Auto-refreshes every 3 hours">
           <svg viewBox="0 0 18 18">
             <circle class="track" cx="9" cy="9" r="7"/>
             <circle class="fill" id="countdown-ring-fill" cx="9" cy="9" r="7"/>
           </svg>
-          <span id="refresh-countdown">30:00</span>
+          <span id="refresh-countdown">3:00:00</span>
         </div>
         <!-- Refresh button: always visible, text label hides on small phones -->
         <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">
@@ -778,6 +811,8 @@
 
 </div>
 
+<div class="toast-container" id="toast-container"></div>
+
 <footer class="footer-bar wrap">
   <div class="footer-left">
     <svg class="footer-refresh-icon" viewBox="0 0 16 16" fill="none" stroke="var(--gold-dim)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -786,7 +821,7 @@
     </svg>
     <span class="footer-ts" id="last-updated">—</span>
     <span class="footer-sep"></span>
-    <span class="footer-note">Prices are indicative · Auto-refresh every 30 min</span>
+    <span class="footer-note">Prices are indicative · Auto-refresh every 3 hours</span>
   </div>
   <div class="footer-right">
     <span class="footer-badge gold-badge"><span class="dot"></span>MCX Gold</span>
@@ -797,17 +832,24 @@
 
 <script>
 // ─────────────────────────────────────────────────────────
-// DATA ENGINE — Realistic MCX-based seeded simulation
+// LIVE DATA ENGINE — Real-time MCX prices & news
 // ─────────────────────────────────────────────────────────
-
-// Current MCX prices — March 10, 2026 (sourced from GoodReturns / MCX live data)
-// Gold 24K: ~₹1,62,380 per 10g (MCX futures); Silver: ~₹2,80,000 per kg
-const BASE = {
-  gold: 162380,   // ₹ per 10g (24K, MCX April 2026 contract)
-  silver: 280000  // ₹ per kg (MCX)
+//
+// ▸ GET FREE API KEYS (takes 1 minute each):
+//   1. GoldAPI.io  → https://www.goldapi.io/dashboard (500 free requests/month)
+//   2. GNews.io    → https://gnews.io/dashboard (100 free requests/day)
+//
+// ▸ PASTE YOUR KEYS BELOW:
+const API_KEYS = {
+  goldApi: 'YOUR_GOLDAPI_KEY_HERE',   // from goldapi.io
+  gnews:   'YOUR_GNEWS_KEY_HERE'      // from gnews.io
 };
 
-const USD_INR = 92.3; // USD/INR as of March 10, 2026
+// Fallback prices (used if API is unavailable)
+const FALLBACK = { gold: 162380, silver: 280000 };
+
+// Live prices — updated by API calls
+const BASE = { gold: FALLBACK.gold, silver: FALLBACK.silver };
 
 // Seeded random (deterministic per day for consistency)
 function seededRand(seed) {
@@ -816,43 +858,195 @@ function seededRand(seed) {
 }
 
 function generateHistoricalPrices(currentPrice, days, dailyVolatility, totalGrowthFraction) {
-  // Work BACKWARDS from current price to starting price using total growth
-  // e.g. gold grew ~212% over 3 years (₹52K → ₹1.62L), silver ~367% (₹60K → ₹2.80L)
   const startPrice = currentPrice / (1 + totalGrowthFraction);
   const prices = [];
   const today = new Date();
-
   for (let i = days; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-
-    // Progress from 0 (oldest) to 1 (today)
     const progress = (days - i) / days;
-
-    // Base price follows a smooth exponential growth curve
     const base = startPrice * Math.pow(currentPrice / startPrice, progress);
-
-    // Add seeded daily noise on top of the trend
     const seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
     const noise = (seededRand(seed) - 0.5) * 2 * dailyVolatility;
-
-    // Noise magnitude scales with price level (so it looks proportional)
     const price = Math.round(base * (1 + noise));
-
     prices.push({ date: new Date(d), price: Math.max(price, Math.round(startPrice * 0.5)) });
   }
-
-  // Pin the last entry to exactly current price (today's known value)
   prices[prices.length - 1].price = currentPrice;
-
   return prices;
 }
 
-// Historical growth anchors (real MCX data):
-// Gold: ~₹52,000/10g (Mar 2023) → ₹1,62,380 (Mar 2026) = +212% over 3 years
-// Silver: ~₹60,000/kg (Mar 2023) → ₹2,80,000 (Mar 2026) = +367% over 3 years
-const GOLD_HISTORY = generateHistoricalPrices(BASE.gold, 1095, 0.012, 2.12);
-const SILVER_HISTORY = generateHistoricalPrices(BASE.silver, 1095, 0.015, 3.67);
+let GOLD_HISTORY = generateHistoricalPrices(BASE.gold, 1095, 0.012, 2.12);
+let SILVER_HISTORY = generateHistoricalPrices(BASE.silver, 1095, 0.015, 3.67);
+
+// ─────────────────────────────────────────────────────────
+// LIVE PRICE FETCHING — GoldAPI.io
+// ─────────────────────────────────────────────────────────
+async function fetchLivePrices() {
+  if (API_KEYS.goldApi === 'YOUR_GOLDAPI_KEY_HERE') {
+    console.warn('⚠ GoldAPI key not set — using fallback prices. Get a free key at https://www.goldapi.io/');
+    return null;
+  }
+
+  try {
+    const headers = { 'x-access-token': API_KEYS.goldApi, 'Content-Type': 'application/json' };
+
+    const [goldRes, silverRes] = await Promise.all([
+      fetch('https://www.goldapi.io/api/XAU/INR', { headers }),
+      fetch('https://www.goldapi.io/api/XAG/INR', { headers })
+    ]);
+
+    if (!goldRes.ok || !silverRes.ok) throw new Error('API returned error');
+
+    const goldData = await goldRes.json();
+    const silverData = await silverRes.json();
+
+    // GoldAPI returns price per troy ounce in INR
+    // Convert: Gold → per 10 grams, Silver → per kilogram
+    // 1 troy oz = 31.1035 grams
+    const goldPer10g = Math.round(goldData.price / 31.1035 * 10);
+    const silverPerKg = Math.round(silverData.price / 31.1035 * 1000);
+
+    const goldPrevClose = goldData.prev_close_price
+      ? Math.round(goldData.prev_close_price / 31.1035 * 10)
+      : null;
+    const silverPrevClose = silverData.prev_close_price
+      ? Math.round(silverData.prev_close_price / 31.1035 * 1000)
+      : null;
+
+    const goldLow = goldData.low_price
+      ? Math.round(goldData.low_price / 31.1035 * 10)
+      : Math.round(goldPer10g * 0.9975);
+    const goldHigh = goldData.high_price
+      ? Math.round(goldData.high_price / 31.1035 * 10)
+      : Math.round(goldPer10g * 1.0025);
+    const silverLow = silverData.low_price
+      ? Math.round(silverData.low_price / 31.1035 * 1000)
+      : Math.round(silverPerKg * 0.9970);
+    const silverHigh = silverData.high_price
+      ? Math.round(silverData.high_price / 31.1035 * 1000)
+      : Math.round(silverPerKg * 1.0030);
+
+    return {
+      gold: goldPer10g,
+      silver: silverPerKg,
+      goldPrevClose, silverPrevClose,
+      goldLow, goldHigh, silverLow, silverHigh
+    };
+  } catch (err) {
+    console.error('Price API error:', err.message);
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// LIVE NEWS FETCHING — GNews.io
+// ─────────────────────────────────────────────────────────
+async function fetchLiveNews() {
+  if (API_KEYS.gnews === 'YOUR_GNEWS_KEY_HERE') {
+    console.warn('⚠ GNews key not set — using fallback news. Get a free key at https://gnews.io/');
+    return null;
+  }
+
+  try {
+    const queries = [
+      'gold price India market',
+      'silver price India MCX'
+    ];
+
+    const results = await Promise.all(queries.map(q =>
+      fetch(`https://gnews.io/api/v4/search?q=${encodeURIComponent(q)}&lang=en&country=in&max=5&apikey=${API_KEYS.gnews}`)
+        .then(r => r.json())
+    ));
+
+    const articles = [];
+    const seen = new Set();
+
+    for (const result of results) {
+      if (!result.articles) continue;
+      for (const a of result.articles) {
+        if (seen.has(a.title)) continue;
+        seen.add(a.title);
+
+        // Determine tag based on content
+        const text = (a.title + ' ' + (a.description || '')).toLowerCase();
+        const hasGold = text.includes('gold');
+        const hasSilver = text.includes('silver');
+        const tag = (hasGold && hasSilver) ? 'both' : hasSilver ? 'silver' : 'gold';
+
+        // Determine sentiment from keywords
+        const bullish = ['surge', 'rally', 'high', 'rise', 'gain', 'jump', 'soar', 'bullish', 'record', 'demand', 'buying'];
+        const bearish = ['fall', 'drop', 'decline', 'slip', 'low', 'sell', 'bearish', 'weak', 'crash', 'plunge', 'cut'];
+        const bullCount = bullish.filter(w => text.includes(w)).length;
+        const bearCount = bearish.filter(w => text.includes(w)).length;
+        const sentiment = bullCount > bearCount ? 'positive' : bearCount > bullCount ? 'negative' : 'neutral';
+
+        const icon = sentiment === 'positive' ? '📈' : sentiment === 'negative' ? '📉' : '📊';
+        const impact = sentiment === 'positive' ? 60 + Math.round(Math.random() * 25)
+          : sentiment === 'negative' ? 45 + Math.round(Math.random() * 20)
+          : 25 + Math.round(Math.random() * 20);
+
+        const impactText = sentiment === 'positive' ? 'Bullish — Positive market signal'
+          : sentiment === 'negative' ? 'Bearish — Negative market signal'
+          : 'Neutral — Market watching';
+
+        // Calculate time ago
+        const pubDate = new Date(a.publishedAt);
+        const diffMs = Date.now() - pubDate.getTime();
+        const diffMin = Math.floor(diffMs / 60000);
+        let timeAgo;
+        if (diffMin < 1) timeAgo = 'Just now';
+        else if (diffMin < 60) timeAgo = diffMin + 'm ago';
+        else if (diffMin < 1440) timeAgo = Math.floor(diffMin / 60) + 'h ago';
+        else timeAgo = Math.floor(diffMin / 1440) + 'd ago';
+
+        articles.push({
+          tag, sentiment, icon,
+          headline: a.title,
+          source: a.source?.name || 'News',
+          impact, impactText, timeAgo
+        });
+      }
+    }
+
+    return articles.slice(0, 8);
+  } catch (err) {
+    console.error('News API error:', err.message);
+    return null;
+  }
+}
+
+// Store fetched news for rendering
+let liveNewsData = null;
+
+// Track whether we have ever loaded live data successfully
+let hasLoadedPrices = false;
+let hasLoadedNews = false;
+
+// ─────────────────────────────────────────────────────────
+// ERROR NOTIFICATION TOAST
+// ─────────────────────────────────────────────────────────
+function showToast(title, message, type = 'error') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast' + (type === 'warning' ? ' toast-warning' : '');
+  const icon = type === 'warning' ? '⚠️' : '❌';
+  toast.innerHTML = `
+    <span class="toast-icon">${icon}</span>
+    <div class="toast-content">
+      <div class="toast-title">${title}</div>
+      <div class="toast-msg">${message}</div>
+    </div>
+    <button class="toast-close" onclick="this.parentElement.classList.add('toast-out');setTimeout(()=>this.parentElement.remove(),300)">×</button>
+  `;
+  container.appendChild(toast);
+  // Auto-dismiss after 8 seconds
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.classList.add('toast-out');
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 8000);
+}
 
 function getSlice(history, days) {
   return history.slice(Math.max(0, history.length - days - 1));
@@ -916,9 +1110,13 @@ function drawSparkline(canvasId, data, color) {
 // ─────────────────────────────────────────────────────────
 function updateHeroCards() {
   const goldNow = GOLD_HISTORY[GOLD_HISTORY.length - 1].price;
-  const goldYest = GOLD_HISTORY[GOLD_HISTORY.length - 2].price;
   const silverNow = SILVER_HISTORY[SILVER_HISTORY.length - 1].price;
-  const silverYest = SILVER_HISTORY[SILVER_HISTORY.length - 2].price;
+
+  // Use live prev close if available, else use historical
+  const live = BASE._liveData;
+  const goldYest = (live && live.goldPrevClose) ? live.goldPrevClose : GOLD_HISTORY[GOLD_HISTORY.length - 2].price;
+  const silverYest = (live && live.silverPrevClose) ? live.silverPrevClose : SILVER_HISTORY[SILVER_HISTORY.length - 2].price;
+
   const goldChange = goldNow - goldYest;
   const goldPct = ((goldChange / goldYest) * 100).toFixed(2);
   const silverChange = silverNow - silverYest;
@@ -935,11 +1133,11 @@ function updateHeroCards() {
   scEl.textContent = (silverChange >= 0 ? '▲ ' : '▼ ') + fmt(Math.abs(silverChange)) + ' (' + Math.abs(silverPct) + '%)';
   scEl.className = 'change-badge ' + (silverChange >= 0 ? 'up' : 'down');
 
-  // Today range (simulated intraday)
-  const goldLow = Math.round(goldNow * 0.9975);
-  const goldHigh = Math.round(goldNow * 1.0025);
-  const silverLow = Math.round(silverNow * 0.9970);
-  const silverHigh = Math.round(silverNow * 1.0030);
+  // Use live intraday low/high if available
+  const goldLow = (live && live.goldLow) ? live.goldLow : Math.round(goldNow * 0.9975);
+  const goldHigh = (live && live.goldHigh) ? live.goldHigh : Math.round(goldNow * 1.0025);
+  const silverLow = (live && live.silverLow) ? live.silverLow : Math.round(silverNow * 0.9970);
+  const silverHigh = (live && live.silverHigh) ? live.silverHigh : Math.round(silverNow * 1.0030);
   document.getElementById('gold-low').textContent = fmt(goldLow);
   document.getElementById('gold-high').textContent = fmt(goldHigh);
   document.getElementById('silver-low').textContent = fmt(silverLow);
@@ -1280,24 +1478,10 @@ let currentNewsIndices = [];
 function renderNews(forceNew = false) {
   const now = new Date();
 
-  // On first render or force refresh, pick 8 random items from pool
-  if (forceNew || currentNewsIndices.length === 0) {
-    // Shuffle pool and pick first 8
-    const shuffled = [...NEWS_POOL]
-      .map((item, i) => ({ item, sort: Math.random() + i * 0.001 }))
-      .sort((a, b) => a.sort - b.sort)
-      .map(x => x.item);
-    currentNewsIndices = shuffled.slice(0, 8);
-  }
-
-  // Assign relative timestamps that feel live — spread across last 0–16 hours
-  const timeLabels = ['Just now', '8m ago', '22m ago', '45m ago', '1h ago', '2h ago', '4h ago', '7h ago',
-                      '9h ago', '11h ago', '13h ago', '16h ago', '20h ago', '1d ago', '1d ago', '2d ago'];
-
-  const grid = document.getElementById('news-grid');
-  grid.innerHTML = currentNewsIndices.map((n, idx) => {
-    const timeStr = timeLabels[idx] || (idx + 1) + 'h ago';
-    return `
+  // Use live news if available, otherwise fall back to NEWS_POOL
+  if (liveNewsData && liveNewsData.length > 0) {
+    const grid = document.getElementById('news-grid');
+    grid.innerHTML = liveNewsData.map(n => `
     <div class="news-card">
       <div class="news-sentiment ${n.sentiment}">${n.icon}</div>
       <div class="news-body">
@@ -1309,7 +1493,7 @@ function renderNews(forceNew = false) {
         <div class="news-meta">
           <span>${n.source}</span>
           <span class="news-meta-dot">·</span>
-          <span>${timeStr}</span>
+          <span>${n.timeAgo}</span>
         </div>
         <div class="news-impact-bar">
           <span class="news-impact-text">${n.impactText}</span>
@@ -1319,8 +1503,47 @@ function renderNews(forceNew = false) {
           <span style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace;flex-shrink:0">${n.impact}%</span>
         </div>
       </div>
-    </div>`;
-  }).join('');
+    </div>`).join('');
+  } else {
+    // Fallback: use hardcoded NEWS_POOL
+    if (forceNew || currentNewsIndices.length === 0) {
+      const shuffled = [...NEWS_POOL]
+        .map((item, i) => ({ item, sort: Math.random() + i * 0.001 }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(x => x.item);
+      currentNewsIndices = shuffled.slice(0, 8);
+    }
+
+    const timeLabels = ['Just now', '8m ago', '22m ago', '45m ago', '1h ago', '2h ago', '4h ago', '7h ago'];
+
+    const grid = document.getElementById('news-grid');
+    grid.innerHTML = currentNewsIndices.map((n, idx) => {
+      const timeStr = timeLabels[idx] || (idx + 1) + 'h ago';
+      return `
+      <div class="news-card">
+        <div class="news-sentiment ${n.sentiment}">${n.icon}</div>
+        <div class="news-body">
+          <div class="news-top">
+            <span class="news-tag ${n.tag}">${n.tag === 'both' ? 'Gold · Silver' : n.tag}</span>
+            <span class="news-impact-label ${n.sentiment}">${n.sentiment === 'positive' ? '▲ Positive' : n.sentiment === 'negative' ? '▼ Negative' : '→ Neutral'}</span>
+          </div>
+          <div class="news-headline">${n.headline}</div>
+          <div class="news-meta">
+            <span>${n.source}</span>
+            <span class="news-meta-dot">·</span>
+            <span>${timeStr}</span>
+          </div>
+          <div class="news-impact-bar">
+            <span class="news-impact-text">${n.impactText}</span>
+            <div class="impact-meter">
+              <div class="impact-fill ${n.sentiment}" style="width:${n.impact}%"></div>
+            </div>
+            <span style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace;flex-shrink:0">${n.impact}%</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
 
   document.getElementById('news-updated').textContent =
     'Updated · ' + now.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST';
@@ -1329,7 +1552,7 @@ function renderNews(forceNew = false) {
 // ─────────────────────────────────────────────────────────
 // REFRESH ENGINE — 30-minute auto-refresh + manual button
 // ─────────────────────────────────────────────────────────
-const AUTO_REFRESH_SECS = 30 * 60; // 30 minutes
+const AUTO_REFRESH_SECS = 3 * 60 * 60; // 3 hours
 let secondsLeft = AUTO_REFRESH_SECS;
 let autoRefreshTimer = null;
 let countdownInterval = null;
@@ -1340,11 +1563,12 @@ function updateCountdown() {
   secondsLeft--;
   if (secondsLeft <= 0) {
     secondsLeft = AUTO_REFRESH_SECS;
-    refreshAllData();
+    refreshAllData(); // async — fires and updates when ready
   }
-  const m = Math.floor(secondsLeft / 60);
+  const h = Math.floor(secondsLeft / 3600);
+  const m = Math.floor((secondsLeft % 3600) / 60);
   const s = secondsLeft % 60;
-  document.getElementById('refresh-countdown').textContent = fmt2(m) + ':' + fmt2(s);
+  document.getElementById('refresh-countdown').textContent = h + ':' + fmt2(m) + ':' + fmt2(s);
 
   // Update SVG ring (circumference = 2π*7 ≈ 44)
   const pct = secondsLeft / AUTO_REFRESH_SECS;
@@ -1353,38 +1577,85 @@ function updateCountdown() {
   if (ring) ring.style.strokeDashoffset = dashOffset;
 }
 
-function refreshAllData() {
-  // Simulate a realistic price tick on each refresh
-  const goldTick = BASE.gold + Math.round((Math.random() - 0.48) * 600);
-  const silverTick = BASE.silver + Math.round((Math.random() - 0.48) * 2000);
+async function refreshAllData() {
+  // Run both API calls in parallel — each updates its own section independently
+  const pricesPromise = fetchLivePrices().then(livePrices => {
+    if (livePrices) {
+      BASE.gold = livePrices.gold;
+      BASE.silver = livePrices.silver;
+      BASE._liveData = livePrices;
+      hasLoadedPrices = true;
 
-  // Update live BASE prices
-  BASE.gold = goldTick;
-  BASE.silver = silverTick;
+      GOLD_HISTORY[GOLD_HISTORY.length - 1].price = BASE.gold;
+      SILVER_HISTORY[SILVER_HISTORY.length - 1].price = BASE.silver;
 
-  // Pin latest history point to new price so all charts + predictions use it
-  GOLD_HISTORY[GOLD_HISTORY.length - 1].price = goldTick;
-  SILVER_HISTORY[SILVER_HISTORY.length - 1].price = silverTick;
+      console.log('✅ Live prices loaded — Gold: ₹' + livePrices.gold.toLocaleString('en-IN') + '/10g, Silver: ₹' + livePrices.silver.toLocaleString('en-IN') + '/kg');
 
-  // Refresh every section
-  updateHeroCards();
-  updateCharts(currentRange);
-  renderPredictions();
-  renderNews(true); // true = rotate to a fresh set of news items
+      // Immediately update price-dependent sections
+      updateHeroCards();
+      updateCharts(currentRange);
+      renderPredictions();
+      updateFooterTimestamp();
+    } else {
+      console.warn('⚠ Price fetch failed — retaining previous data');
+      if (API_KEYS.goldApi !== 'YOUR_GOLDAPI_KEY_HERE') {
+        showToast(
+          'Price update failed',
+          hasLoadedPrices
+            ? 'Could not fetch latest prices. Showing last successfully loaded data.'
+            : 'Unable to connect to price API. Please check your API key and internet connection.',
+          'error'
+        );
+      } else {
+        showToast(
+          'API key not configured',
+          'Set your GoldAPI key in the script to get live prices. Visit goldapi.io for a free key.',
+          'warning'
+        );
+      }
+    }
+  });
 
-  updateFooterTimestamp();
+  const newsPromise = fetchLiveNews().then(liveNews => {
+    if (liveNews && liveNews.length > 0) {
+      liveNewsData = liveNews;
+      hasLoadedNews = true;
+      console.log('✅ Live news loaded — ' + liveNews.length + ' articles');
+
+      // Immediately update news section
+      renderNews(true);
+    } else {
+      console.warn('⚠ News fetch failed — retaining previous news');
+      if (API_KEYS.gnews !== 'YOUR_GNEWS_KEY_HERE') {
+        showToast(
+          'News update failed',
+          hasLoadedNews
+            ? 'Could not fetch latest news. Showing last successfully loaded articles.'
+            : 'Unable to connect to news API. Please check your API key and internet connection.',
+          'error'
+        );
+      } else {
+        showToast(
+          'News API key not configured',
+          'Set your GNews key in the script to get live market news. Visit gnews.io for a free key.',
+          'warning'
+        );
+      }
+    }
+  });
+
+  // Wait for both to finish (UI already updated independently above)
+  await Promise.all([pricesPromise, newsPromise]);
 }
 
-function manualRefresh() {
+async function manualRefresh() {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
   btn.disabled = true;
-  setTimeout(() => {
-    refreshAllData();
-    secondsLeft = AUTO_REFRESH_SECS;
-    btn.classList.remove('spinning');
-    btn.disabled = false;
-  }, 700);
+  await refreshAllData();
+  secondsLeft = AUTO_REFRESH_SECS;
+  btn.classList.remove('spinning');
+  btn.disabled = false;
 }
 
 function startCountdown() {
@@ -1395,16 +1666,19 @@ function startCountdown() {
 // ─────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────
-function init() {
-  updateHeroCards();
+async function init() {
+  // Fetch live data on first load
+  await refreshAllData();
   initCharts();
-  renderPredictions();
-  renderNews(false); // initial load — picks first random set
   startCountdown();
-  updateFooterTimestamp();
 }
 
-window.addEventListener('load', init);
+window.addEventListener('load', () => {
+  // Show loading state
+  document.getElementById('gold-price').textContent = 'Loading...';
+  document.getElementById('silver-price').textContent = 'Loading...';
+  init();
+});
 window.addEventListener('resize', () => {
   drawSparkline('gold-spark', GOLD_HISTORY, '#C9A84C');
   drawSparkline('silver-spark', SILVER_HISTORY, '#9EAFC2');
