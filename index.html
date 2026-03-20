@@ -890,15 +890,37 @@ async function fetchLivePrices() {
   try {
     const headers = { 'x-access-token': API_KEYS.goldApi, 'Content-Type': 'application/json' };
 
-    const [goldRes, silverRes] = await Promise.all([
-      fetch('https://www.goldapi.io/api/XAU/INR', { headers }),
-      fetch('https://www.goldapi.io/api/XAG/INR', { headers })
+    // CORS proxy fallback for GoldAPI
+    const CORS_PROXIES = [
+      url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+    ];
+
+    async function fetchGoldApi(endpoint) {
+      // Try direct first (GoldAPI may support CORS)
+      try {
+        const res = await fetch(endpoint, { headers });
+        if (res.ok) return await res.json();
+      } catch (_) {}
+
+      // Try proxies (proxies cannot forward custom headers, so append token as query)
+      const proxyUrl = endpoint + (endpoint.includes('?') ? '&' : '?') + 'x_access_token=' + API_KEYS.goldApi;
+      for (const proxy of CORS_PROXIES) {
+        try {
+          const res = await fetch(proxy(endpoint), {
+            headers: { 'x-access-token': API_KEYS.goldApi }
+          });
+          if (res.ok) return await res.json();
+        } catch (_) {}
+      }
+      throw new Error('All fetch attempts failed for ' + endpoint);
+    }
+
+    const [goldData, silverData] = await Promise.all([
+      fetchGoldApi('https://www.goldapi.io/api/XAU/INR'),
+      fetchGoldApi('https://www.goldapi.io/api/XAG/INR')
     ]);
-
-    if (!goldRes.ok || !silverRes.ok) throw new Error('API returned error');
-
-    const goldData = await goldRes.json();
-    const silverData = await silverRes.json();
 
     // GoldAPI returns price per troy ounce in INR
     // Convert: Gold → per 10 grams, Silver → per kilogram
@@ -953,9 +975,35 @@ async function fetchLiveNews() {
       'silver price India MCX'
     ];
 
+    // GNews.io does not support CORS from browsers, so we use a CORS proxy
+    const CORS_PROXIES = [
+      url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+    ];
+
+    async function fetchWithProxy(url) {
+      // Try direct first (in case CORS is enabled in future)
+      try {
+        const directRes = await fetch(url);
+        if (directRes.ok) return await directRes.json();
+      } catch (_) {}
+
+      // Try each proxy until one works
+      for (const proxy of CORS_PROXIES) {
+        try {
+          const res = await fetch(proxy(url));
+          if (res.ok) {
+            const data = await res.json();
+            return data;
+          }
+        } catch (_) {}
+      }
+      throw new Error('All CORS proxies failed');
+    }
+
     const results = await Promise.all(queries.map(q =>
-      fetch(`https://gnews.io/api/v4/search?q=${encodeURIComponent(q)}&lang=en&country=in&max=5&apikey=${API_KEYS.gnews}`)
-        .then(r => r.json())
+      fetchWithProxy(`https://gnews.io/api/v4/search?q=${encodeURIComponent(q)}&lang=en&country=in&max=5&apikey=${API_KEYS.gnews}`)
     ));
 
     const articles = [];
