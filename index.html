@@ -345,6 +345,34 @@
   .impact-fill.negative { background: var(--down); }
   .impact-fill.neutral { background: var(--text-muted); }
 
+  /* NEWS EXPANDABLE DESCRIPTION */
+  .news-expand-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 11px; font-family: 'DM Mono', monospace;
+    color: var(--gold); padding: 4px 0 0; display: inline-flex;
+    align-items: center; gap: 4px; transition: color 0.2s;
+  }
+  .news-expand-btn:hover { color: var(--gold-light); }
+  .news-expand-btn .arrow { transition: transform 0.3s ease; display: inline-block; }
+  .news-expand-btn.expanded .arrow { transform: rotate(180deg); }
+  .news-description {
+    max-height: 0; overflow: hidden;
+    transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s ease;
+    opacity: 0; margin-top: 0;
+    font-size: 13px; line-height: 1.6; color: var(--text-secondary);
+  }
+  .news-description.open {
+    max-height: 300px; opacity: 1; margin-top: 10px;
+  }
+  .news-description p { margin-bottom: 8px; }
+  .news-description .news-read-full {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-family: 'DM Mono', monospace;
+    color: var(--gold); text-decoration: none;
+    margin-top: 4px;
+  }
+  .news-description .news-read-full:hover { color: var(--gold-light); text-decoration: underline; }
+
   /* DIVIDER */
   .section-divider {
     height: 1px; background: var(--border); margin: 4px 0;
@@ -1050,6 +1078,8 @@ async function fetchLiveNews() {
         articles.push({
           tag, sentiment, icon,
           headline: a.title,
+          description: a.description || '',
+          url: a.url || '#',
           source: a.source?.name || 'News',
           impact, impactText, timeAgo
         });
@@ -1529,7 +1559,7 @@ function renderNews(forceNew = false) {
   // Use live news if available, otherwise fall back to NEWS_POOL
   if (liveNewsData && liveNewsData.length > 0) {
     const grid = document.getElementById('news-grid');
-    grid.innerHTML = liveNewsData.map(n => `
+    grid.innerHTML = liveNewsData.map((n, idx) => `
     <div class="news-card">
       <div class="news-sentiment ${n.sentiment}">${n.icon}</div>
       <div class="news-body">
@@ -1550,6 +1580,14 @@ function renderNews(forceNew = false) {
           </div>
           <span style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace;flex-shrink:0">${n.impact}%</span>
         </div>
+        ${n.description ? `
+        <button class="news-expand-btn" onclick="toggleNewsDesc(this, 'news-desc-${idx}')">
+          Read more <span class="arrow">▼</span>
+        </button>
+        <div class="news-description" id="news-desc-${idx}">
+          <p>${n.description}</p>
+          ${n.url && n.url !== '#' ? `<a href="${n.url}" target="_blank" rel="noopener" class="news-read-full">Read full article ↗</a>` : ''}
+        </div>` : ''}
       </div>
     </div>`).join('');
   } else {
@@ -1708,17 +1746,38 @@ async function manualRefresh() {
 
 function startCountdown() {
   if (countdownInterval) clearInterval(countdownInterval);
+  // Show initial countdown immediately (don't wait 1 second)
+  const h = Math.floor(secondsLeft / 3600);
+  const m = Math.floor((secondsLeft % 3600) / 60);
+  const s = secondsLeft % 60;
+  document.getElementById('refresh-countdown').textContent = h + ':' + fmt2(m) + ':' + fmt2(s);
   countdownInterval = setInterval(updateCountdown, 1000);
+}
+
+function toggleNewsDesc(btn, descId) {
+  const desc = document.getElementById(descId);
+  if (!desc) return;
+  const isOpen = desc.classList.contains('open');
+  if (isOpen) {
+    desc.classList.remove('open');
+    btn.classList.remove('expanded');
+    btn.innerHTML = 'Read more <span class="arrow">▼</span>';
+  } else {
+    desc.classList.add('open');
+    btn.classList.add('expanded');
+    btn.innerHTML = 'Show less <span class="arrow">▼</span>';
+  }
 }
 
 // ─────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────
 async function init() {
+  // Start countdown immediately so timer is visible during loading
+  startCountdown();
   // Fetch live data on first load
   await refreshAllData();
   initCharts();
-  startCountdown();
 }
 
 window.addEventListener('load', () => {
